@@ -73,7 +73,7 @@ func (kafka *SaramaConsumer) Start() error {
 		}
 
 		kafka.consumersGrp.Add(1)
-		go kafka.startPartitionConsumer(partitionConsumer, (*SaramaConsumer).printOffsetCommit)
+		go kafka.startPartitionConsumer(partitionConsumer, (*SaramaConsumer).printOffsetCommitAndGroupMetadata)
 	}
 
 	return nil
@@ -120,7 +120,7 @@ func (kafka *SaramaConsumer) printOffsetCommit(msg *sarama.ConsumerMessage) {
 	switch keyVersion {
 	case OffsetCommitVersion:
 		offsetKey := OffsetCommitKey{}
-		if _, err := offsetKey.parse(keyBuf); err != nil {
+		if _, err := offsetKey.Parse(keyBuf); err != nil {
 			log.Println(err)
 		}
 
@@ -129,13 +129,86 @@ func (kafka *SaramaConsumer) printOffsetCommit(msg *sarama.ConsumerMessage) {
 			return
 		}
 		offsetValue := OffsetCommitValue{}
-		if _, err := offsetValue.parse(valueBuf, valueVersion); err != nil {
+		if _, err := offsetValue.Parse(valueBuf, valueVersion); err != nil {
 			return
 		}
 
 		fmt.Printf("key(%d)   : %v\n", keyVersion, offsetKey)
 		fmt.Printf("value(%d) : %v\n\n", valueVersion, offsetValue)
 		return
+	default:
+		return
+	}
+}
+
+func (kafka *SaramaConsumer) printOffsetCommitAndGroupMetadata(msg *sarama.ConsumerMessage) {
+	var keyVersion, valueVersion int16
+
+	fmt.Printf("partition(%d) offset(%d)\n", int(msg.Partition), msg.Offset)
+
+	keyBuf := bytes.NewBuffer(msg.Key)
+	if err := binary.Read(keyBuf, binary.BigEndian, &keyVersion); err != nil {
+		// log
+		return
+	}
+
+	switch keyVersion {
+	case OffsetCommitVersion:
+		offsetKey := OffsetCommitKey{}
+		if _, err := offsetKey.Parse(keyBuf); err != nil {
+			return
+		}
+
+		valueBuf := bytes.NewBuffer(msg.Value)
+		if err := binary.Read(valueBuf, binary.BigEndian, &valueVersion); err != nil {
+			return
+		}
+		offsetValue := OffsetCommitValue{}
+		if _, err := offsetValue.Parse(valueBuf, valueVersion); err != nil {
+			return
+		}
+
+		fmt.Printf("key(%d)   : %v\n", keyVersion, offsetKey)
+		fmt.Printf("value(%d) : %v\n\n", valueVersion, offsetValue)
+		return
+	case GroupMetadataVersion:
+		metadataKey := GroupMetadataKey{}
+		if _, err := metadataKey.Parse(keyBuf); err != nil {
+			return
+		}
+
+		valueBuf := bytes.NewBuffer(msg.Value)
+		if err := binary.Read(valueBuf, binary.BigEndian, &valueVersion); err != nil {
+			return
+		}
+		metadataHeader := GroupMetadataHeader{}
+		if _, err := metadataHeader.Parse(valueBuf, valueVersion); err != nil {
+			return
+		}
+
+		var numOfMember int32
+		if err := binary.Read(valueBuf, binary.BigEndian, &numOfMember); err != nil {
+			log.Println("numOfMember", err)
+			return
+		}
+		if numOfMember <= 0 {
+			fmt.Printf("key(%d)    : %v\n", keyVersion, metadataKey)
+			fmt.Printf("header(%d) : %v\n", valueVersion, metadataHeader)
+		}
+		for i := 0; i < int(numOfMember); i++ {
+			member := MemberMetadata{}
+			if where, err := member.Parse(valueBuf, valueVersion); err != nil {
+				log.Println(where, err)
+				fmt.Println(valueBuf.Bytes())
+				fmt.Printf("member     : %v\n\n", member)
+				return
+			} else {
+				fmt.Printf("key(%d)    : %v\n", keyVersion, metadataKey)
+				fmt.Printf("header(%d) : %v\n", valueVersion, metadataHeader)
+				fmt.Printf("member     : %v\n\n", member)
+			}
+		}
+
 	default:
 		return
 	}

@@ -1,8 +1,28 @@
-// reference
+package consumer
+
+// reference 1
 // apache/kafka/blob/trunk/core/src/main/scala/kafka/coordinator/group/GroupMetadataManager.scala
 // GroupMetadataManager (Line : 995 ~)
 
-package consumer
+// reference 2
+// https://kafka.apache.org/protocol#protocol_types
+
+// ---------- Kafka Protocol Primitive Types ----------
+// TYPE : INT(N)
+// DESCRIPTION : big-endian
+
+// TYPE : STRING
+// DESCRIPTION : first, length N (INT16). Then N bytes UTF-8 character
+
+// TYPE : NULLABLE_STRING
+// DESCRIPTION : if null string, length -1 (INT16), Then no following bytes. Otherwise, same with STRING
+
+// TYPE : ARRAY
+// DESCRIPTION : first, length N (INT32). Then N instance of type follow.
+
+// TYPE : BYTES
+// DESCRIPTION : first, lenght N (INT32). Then N bytes follow.
+// ----------------------------------------------------
 
 // key version kafka definition
 // private val CURRENT_OFFSET_KEY_SCHEMA_VERSION = 1.toShort
@@ -138,12 +158,13 @@ type GroupMetadataHeaderV3 GroupMetadataHeaderV2
 // MemberMetadata all in one
 type MemberMetadata struct {
 	MemberID         string
-	GroupInstanceID  string
 	ClientID         string
 	ClientHost       string
-	RebalanceTimeout int32
 	SessionTimeout   int32
-	//Assignment       map[string][]int32
+	RebalanceTimeout int32
+	GroupInstanceID  string
+	// Subscription []string
+	Assignment map[string][]int32 // topics-partitions data
 }
 
 // MemberMetadataV0 kafka definition
@@ -159,7 +180,7 @@ type MemberMetadataV0 struct {
 	ClientID       string
 	ClientHost     string
 	SessionTimeout int32
-	//Assignment     map[string][]int32
+	Assignment     map[string][]int32
 }
 
 // MemberMetadataV1 kafka definition
@@ -175,9 +196,9 @@ type MemberMetadataV1 struct {
 	MemberID         string
 	ClientID         string
 	ClientHost       string
-	RebalanceTimeout int32
 	SessionTimeout   int32
-	//Assignment       map[string][]int32
+	RebalanceTimeout int32
+	Assignment       map[string][]int32
 }
 
 // MemberMetadataV2 kafka definition
@@ -195,10 +216,10 @@ type MemberMetadataV2 MemberMetadataV1
 //     new Field(ASSIGNMENT_KEY, BYTES))
 type MemberMetadataV3 struct {
 	MemberID         string
-	GroupInstanceID  string
 	ClientID         string
 	ClientHost       string
-	RebalanceTimeout int32
 	SessionTimeout   int32
-	//Assignment       map[string][]int32
+	RebalanceTimeout int32
+	GroupInstanceID  string
+	Assignment       map[string][]int32
 }
