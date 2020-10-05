@@ -29,7 +29,7 @@ func (kafka *SaramaConsumer) Setup() {
 	kafka.KafkaTopic = viper.GetString("topic")
 
 	kafka.saramaConfig = sarama.NewConfig()
-	kafka.saramaConfig.Version = kafkaVersions[viper.GetString("version")]
+	kafka.saramaConfig.Version = helper.KafkaVersions[viper.GetString("version")]
 	kafka.saramaConfig.Consumer.Offsets.Initial = sarama.OffsetOldest
 
 	kafka.consumersCtx, kafka.stopConsumers = context.WithCancel(context.Background())
@@ -199,8 +199,6 @@ func (kafka *SaramaConsumer) printOffsetCommitAndGroupMetadata(msg *sarama.Consu
 			member := MemberMetadata{}
 			if where, err := member.Parse(valueBuf, valueVersion); err != nil {
 				log.Println(where, err)
-				fmt.Println(valueBuf.Bytes())
-				fmt.Printf("member     : %v\n\n", member)
 				return
 			} else {
 				fmt.Printf("key(%d)    : %v\n", keyVersion, metadataKey)
